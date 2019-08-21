@@ -1,0 +1,33 @@
+#!/bin/bash -eu
+# check whether environment variable defined or not
+# @see https://stackoverflow.com/questions/39296472/how-to-check-if-an-environment-variable-exists-and-get-its-value/39296583#39296583
+set +u
+if [ -z "${SLACK_WEBHOOK_URL}" ]; then
+  printf "Environment variable \"SLACK_WEBHOOK_URL\" undefined. At first, please define it."
+  exit 1
+fi
+set -u
+text='Finished!'
+capture_stdin() {
+  # TODO Why?
+  set +e
+  # TODO Why?
+  tee /tmp/standardInput.txt
+  standardInput=$(cat /tmp/standardInput.txt)
+  rm -f /tmp/standardInput.txt
+  set -e
+  # Forrowing specification of message character length on Slack
+  # @see https://api.slack.com/changelog/2018-04-truncating-really-long-messages
+  if [ ${#standardInput} -ge 39900 ]; then
+    standardInput=${standardInput: -39900}
+  fi
+  text="Finished!\n\`\`\`\n${standardInput}\n\`\`\`"
+  return 0
+}
+# check whether stdin is open or not
+# @see https://stackoverflow.com/questions/911168/how-to-detect-if-my-shell-script-is-running-through-a-pipe/911213#911213
+if [ ! -t 0 ]; then
+  capture_stdin
+fi
+curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"${text}\"}" "${SLACK_WEBHOOK_URL}"
+echo ''
